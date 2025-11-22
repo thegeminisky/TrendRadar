@@ -18,7 +18,10 @@ from typing import Dict, List, Tuple, Optional, Union
 import pytz
 import requests
 import yaml
-
+import hmac
+import hashlib
+import base64
+import urllib.parse
 
 VERSION = "3.1.0"
 
@@ -143,6 +146,9 @@ def load_config():
     config["DINGTALK_WEBHOOK_URL"] = os.environ.get(
         "DINGTALK_WEBHOOK_URL", ""
     ).strip() or webhooks.get("dingtalk_url", "")
+    config["DINGTALK_SECRET"] = os.environ.get(
+        "DINGTALK_SECRET", ""
+    ).strip() or webhooks.get("dingtalk_secret", "")
     config["WEWORK_WEBHOOK_URL"] = os.environ.get(
         "WEWORK_WEBHOOK_URL", ""
     ).strip() or webhooks.get("wework_url", "")
@@ -3333,6 +3339,7 @@ def send_to_notifications(
 
     feishu_url = CONFIG["FEISHU_WEBHOOK_URL"]
     dingtalk_url = CONFIG["DINGTALK_WEBHOOK_URL"]
+    dingtalk_secret = CONFIG["DINGTALK_SECRET"]
     wework_url = CONFIG["WEWORK_WEBHOOK_URL"]
     telegram_token = CONFIG["TELEGRAM_BOT_TOKEN"]
     telegram_chat_id = CONFIG["TELEGRAM_CHAT_ID"]
@@ -3356,7 +3363,7 @@ def send_to_notifications(
     # 发送到钉钉
     if dingtalk_url:
         results["dingtalk"] = send_to_dingtalk(
-            dingtalk_url, report_data, report_type, update_info_to_send, proxy_url, mode
+            dingtalk_url, dingtalk_secret, report_data, report_type, update_info_to_send, proxy_url, mode
         )
 
     # 发送到企业微信
@@ -3509,6 +3516,7 @@ def send_to_feishu(
 
 def send_to_dingtalk(
     webhook_url: str,
+    webhook_secret: str,
     report_data: Dict,
     report_type: str,
     update_info: Optional[Dict] = None,
@@ -3551,6 +3559,13 @@ def send_to_dingtalk(
                 # 如果没有统计标题，直接在开头添加
                 batch_content = batch_header + batch_content
 
+        # 采用加签的形式完成钉钉机器人鉴权
+        timestamp = str(round(time.time() * 1000))
+        string_to_sign = f'{timestamp}\n{webhook_secret}'
+        hmac_code = hmac.new(webhook_secret.encode('utf-8'), string_to_sign.encode('utf-8'), digestmod=hashlib.sha256).digest()
+        sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
+        url = f'{webhook_url}&timestamp={timestamp}&sign={sign}'
+
         payload = {
             "msgtype": "markdown",
             "markdown": {
@@ -3561,7 +3576,7 @@ def send_to_dingtalk(
 
         try:
             response = requests.post(
-                webhook_url, headers=headers, json=payload, proxies=proxies, timeout=30
+                url, headers=headers, json=payload, proxies=proxies, timeout=30
             )
             if response.status_code == 200:
                 result = response.json()

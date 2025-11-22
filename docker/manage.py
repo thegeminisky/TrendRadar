@@ -274,6 +274,7 @@ def show_config():
         "IMMEDIATE_RUN",
         "FEISHU_WEBHOOK_URL",
         "DINGTALK_WEBHOOK_URL",
+        "DINGTALK_SECRET",
         "WEWORK_WEBHOOK_URL",
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID",
