@@ -4123,7 +4123,7 @@ class NewsAnalyzer:
         self.data_fetcher = DataFetcher(self.proxy_url)
 
         if self.is_github_actions:
-            self._check_version_update()
+            pass
 
     def _detect_docker_environment(self) -> bool:
         """检测是否运行在 Docker 容器中"""
